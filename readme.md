@@ -371,6 +371,7 @@ All of these awesome projects are built using the `chatgpt` package. 🤯
 - [NestJS server](https://github.com/RusDyn/chatgpt_nestjs_server)
 - [NestJS ChatGPT Starter Boilerplate](https://github.com/mitkodkn/nestjs-chatgpt-starter)
 - [Wordsmith: Add-in for Microsoft Word](https://github.com/xtremehpx/Wordsmith)
+- [QuizGPT: Create Kahoot quizzes with ChatGPT](https://github.com/Kladdy/quizgpt)
 
 If you create a cool integration, feel free to open a PR and add it to the list.
 
