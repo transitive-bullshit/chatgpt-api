@@ -128,7 +128,8 @@ export class ChatGPTUnofficialProxyAPI {
       messageId = uuidv4(),
       action = 'next',
       timeoutMs,
-      onProgress
+      onProgress,
+      progressTimeoutMs
     } = opts
 
     let { abortSignal } = opts
@@ -180,69 +181,83 @@ export class ChatGPTUnofficialProxyAPI {
         console.log('POST', url, { body, headers })
       }
 
-      fetchSSE(
-        url,
-        {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(body),
-          signal: abortSignal,
-          onMessage: (data: string) => {
-            if (data === '[DONE]') {
-              return resolve(result)
-            }
-
-            try {
-              const convoResponseEvent: types.ConversationResponseEvent =
-                JSON.parse(data)
-              if (convoResponseEvent.conversation_id) {
-                result.conversationId = convoResponseEvent.conversation_id
+      const onProgressPromise = new Promise<void>((res) => {
+        fetchSSE(
+          url,
+          {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(body),
+            signal: abortSignal,
+            onMessage: (data: string) => {
+              if (data === '[DONE]') {
+                return resolve(result)
               }
 
-              if (convoResponseEvent.message?.id) {
-                result.id = convoResponseEvent.message.id
-              }
+              try {
+                const convoResponseEvent: types.ConversationResponseEvent =
+                  JSON.parse(data)
+                if (convoResponseEvent.conversation_id) {
+                  result.conversationId = convoResponseEvent.conversation_id
+                }
 
-              const message = convoResponseEvent.message
-              // console.log('event', JSON.stringify(convoResponseEvent, null, 2))
+                if (convoResponseEvent.message?.id) {
+                  result.id = convoResponseEvent.message.id
+                }
 
-              if (message) {
-                let text = message?.content?.parts?.[0]
+                const message = convoResponseEvent.message
+                // console.log('event', JSON.stringify(convoResponseEvent, null, 2))
 
-                if (text) {
-                  result.text = text
+                if (message) {
+                  let text = message?.content?.parts?.[0]
 
-                  if (onProgress) {
-                    onProgress(result)
+                  if (text) {
+                    result.text = text
+                    res(onProgress?.(result))
                   }
                 }
+              } catch (err) {
+                reject(err)
               }
-            } catch (err) {
+            },
+            onError: (err) => {
               reject(err)
             }
           },
-          onError: (err) => {
-            reject(err)
-          }
-        },
-        this._fetch
-      ).catch((err) => {
-        const errMessageL = err.toString().toLowerCase()
+          this._fetch
+        ).catch((err) => {
+          const errMessageL = err.toString().toLowerCase()
 
-        if (
-          result.text &&
-          (errMessageL === 'error: typeerror: terminated' ||
-            errMessageL === 'typeerror: terminated')
-        ) {
-          // OpenAI sometimes forcefully terminates the socket from their end before
-          // the HTTP request has resolved cleanly. In my testing, these cases tend to
-          // happen when OpenAI has already send the last `response`, so we can ignore
-          // the `fetch` error in this case.
-          return resolve(result)
-        } else {
-          return reject(err)
-        }
+          if (
+            result.text &&
+            (errMessageL === 'error: typeerror: terminated' ||
+              errMessageL === 'typeerror: terminated')
+          ) {
+            // OpenAI sometimes forcefully terminates the socket from their end before
+            // the HTTP request has resolved cleanly. In my testing, these cases tend to
+            // happen when OpenAI has already send the last `response`, so we can ignore
+            // the `fetch` error in this case.
+            return resolve(result)
+          } else {
+            return reject(err)
+          }
+        })
       })
+
+      if (progressTimeoutMs) {
+        if (abortController) {
+          ;(onProgressPromise as any).cancel = () => {
+            abortController.abort()
+          }
+        }
+
+        return pTimeout(onProgressPromise, {
+          milliseconds: progressTimeoutMs,
+          message: 'Caught onProgress timeout'
+        }).catch((e) => reject(e))
+      } else {
+        return onProgressPromise
+      }
     })
 
     if (timeoutMs) {
