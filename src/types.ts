@@ -50,7 +50,7 @@ export type SendMessageOptions = {
   >
 }
 
-export type MessageActionType = 'next' | 'variant'
+export type MessageActionType = 'next' | 'continue' | 'variant'
 
 export type SendMessageBrowserOptions = {
   conversationId?: string
@@ -118,8 +118,10 @@ export type ConversationJSONBody = {
 
   /**
    * Prompts to provide
+   *
+   * Should be null when the action is 'continue'
    */
-  messages: Prompt[]
+  messages?: Prompt[]
 
   /**
    * The model to use

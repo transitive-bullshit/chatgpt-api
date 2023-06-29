@@ -141,16 +141,20 @@ export class ChatGPTUnofficialProxyAPI {
 
     const body: types.ConversationJSONBody = {
       action,
-      messages: [
-        {
-          id: messageId,
-          role: 'user',
-          content: {
-            content_type: 'text',
-            parts: [text]
-          }
+      ...(
+        action === 'continue' ? {} : {
+          messages: [
+            {
+              id: messageId,
+              role: 'user',
+              content: {
+                content_type: 'text',
+                parts: [text]
+              }
+            }
+          ],
         }
-      ],
+      ),
       model: this._model,
       parent_message_id: parentMessageId
     }
