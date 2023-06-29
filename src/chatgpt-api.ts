@@ -365,7 +365,6 @@ export class ChatGPTAPI {
     const userLabel = USER_LABEL_DEFAULT
     const assistantLabel = ASSISTANT_LABEL_DEFAULT
 
-    const maxNumTokens = this._maxModelTokens - this._maxResponseTokens
     let messages: types.openai.ChatCompletionRequestMessage[] = []
 
     if (systemMessage) {
@@ -385,6 +384,7 @@ export class ChatGPTAPI {
           }
         ])
       : messages
+    const requiredMessagesAmount = nextMessages.length
     let numTokens = 0
 
     do {
@@ -400,20 +400,28 @@ export class ChatGPTAPI {
           }
         }, [] as string[])
         .join('\n\n')
-
       const nextNumTokensEstimate = await this._getTokenCount(prompt)
-      const isValidPrompt = nextNumTokensEstimate <= maxNumTokens
+      const validatingRequiredMessages =
+        nextMessages.length <= requiredMessagesAmount
+      const promptLimit = validatingRequiredMessages
+        ? this._maxModelTokens - 1
+        : this._maxModelTokens - this._maxResponseTokens
+      const isValidPrompt = nextNumTokensEstimate <= promptLimit
 
-      if (prompt && !isValidPrompt) {
+      if (!isValidPrompt && validatingRequiredMessages) {
+        // SystemMessage and user main prompt exceed the limit. Handling the request without one of them has no sense
+        // Intentionally send wrong data to ChatGPT to return exception to user of the same shape
+        messages = nextMessages
+        numTokens = nextNumTokensEstimate
+        break
+      }
+
+      if (!isValidPrompt) {
         break
       }
 
       messages = nextMessages
       numTokens = nextNumTokensEstimate
-
-      if (!isValidPrompt) {
-        break
-      }
 
       if (!parentMessageId) {
         break
