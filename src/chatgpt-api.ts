@@ -135,7 +135,7 @@ export class ChatGPTAPI {
    * @returns The response from ChatGPT
    */
   async sendMessage(
-    text: string,
+    text: string | types.openai.ChatCompletionRequestMessage[],
     opts: types.SendMessageOptions = {}
   ): Promise<types.ChatMessage> {
     const {
@@ -171,7 +171,11 @@ export class ChatGPTAPI {
       opts
     )
 
-    const result: types.ChatMessage = {
+    type ChatMessageResult = types.ChatMessage & {
+      text: string
+    }
+
+    const result: ChatMessageResult = {
       role: 'assistant',
       id: uuidv4(),
       conversationId,
@@ -358,7 +362,10 @@ export class ChatGPTAPI {
     this._apiOrg = apiOrg
   }
 
-  protected async _buildMessages(text: string, opts: types.SendMessageOptions) {
+  protected async _buildMessages(
+    text: string | types.openai.ChatCompletionRequestMessage[],
+    opts: types.SendMessageOptions
+  ) {
     const { systemMessage = this._systemMessage } = opts
     let { parentMessageId } = opts
 
@@ -377,13 +384,17 @@ export class ChatGPTAPI {
 
     const systemMessageOffset = messages.length
     let nextMessages = text
-      ? messages.concat([
-          {
-            role: 'user',
-            content: text,
-            name: opts.name
-          }
-        ])
+      ? messages.concat(
+          typeof text === 'string'
+            ? [
+                {
+                  role: 'user',
+                  content: text,
+                  name: opts.name
+                }
+              ]
+            : text
+        )
       : messages
     let numTokens = 0
 
@@ -426,14 +437,18 @@ export class ChatGPTAPI {
 
       const parentMessageRole = parentMessage.role || 'user'
 
-      nextMessages = nextMessages.slice(0, systemMessageOffset).concat([
-        {
-          role: parentMessageRole,
-          content: parentMessage.text,
-          name: parentMessage.name
-        },
+      nextMessages = nextMessages.slice(0, systemMessageOffset).concat(
+        typeof parentMessage.text === 'string'
+          ? [
+              {
+                role: parentMessageRole,
+                content: parentMessage.text,
+                name: parentMessage.name
+              }
+            ]
+          : parentMessage.text,
         ...nextMessages.slice(systemMessageOffset)
-      ])
+      )
 
       parentMessageId = parentMessage.parentMessageId
     } while (true)
@@ -448,7 +463,13 @@ export class ChatGPTAPI {
     return { messages, maxTokens, numTokens }
   }
 
-  protected async _getTokenCount(text: string) {
+  protected async _getTokenCount(
+    textOrMessages: string | types.openai.ChatCompletionRequestMessage[]
+  ) {
+    let text =
+      typeof textOrMessages === 'string'
+        ? textOrMessages
+        : textOrMessages.map(({ content }) => content).join(';')
     // TODO: use a better fix in the tokenizer
     text = text.replace(/<\|endoftext\|>/g, '')
 
