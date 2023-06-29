@@ -539,6 +539,7 @@ All of these awesome projects are built using the `chatgpt` package. 🤯
 - [OpenAI-API-Service](https://github.com/Jarvan-via/api-service) - Provides OpenAI related APIs for businesses
 - [Discord Daily News Bot](https://github.com/ZirionNeft/chatgpt-discord-daily-news-bot) - Discord bot that generate funny daily news
 - [ai-assistant](https://github.com/chenweiyi/ai-assistant) - Create a chat website similar to ChatGPT
+- [Tulsk – AI-Driven Project Management](https://tulsk.io)
 
 If you create a cool integration, feel free to open a PR and add it to the list.
 
