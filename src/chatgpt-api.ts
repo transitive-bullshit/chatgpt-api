@@ -358,12 +358,50 @@ export class ChatGPTAPI {
     this._apiOrg = apiOrg
   }
 
+  protected _formatPrompt(messages) {
+    const userLabel = USER_LABEL_DEFAULT
+    const assistantLabel = ASSISTANT_LABEL_DEFAULT
+    return messages
+      .reduce((prompt2, message) => {
+        switch (message.role) {
+          case 'system':
+            return prompt2.concat([
+              `Instructions:
+${message.content}`
+            ])
+          case 'user':
+            return prompt2.concat([
+              `${userLabel}:
+${message.content}`
+            ])
+          default:
+            return prompt2.concat([
+              `${assistantLabel}:
+${message.content}`
+            ])
+        }
+      }, [])
+      .join('\n\n')
+  }
+
+  protected async _recursivePruning(
+    messages: types.openai.ChatCompletionRequestMessage[],
+    maxNumTokens: number
+  ) {
+    const prompt = this._formatPrompt(messages)
+    const currentTokens = await this._getTokenCount(prompt)
+
+    if (currentTokens <= maxNumTokens) {
+      return messages
+    }
+
+    messages.splice(1, 1)
+    return this._recursivePruning(messages, maxNumTokens)
+  }
+
   protected async _buildMessages(text: string, opts: types.SendMessageOptions) {
     const { systemMessage = this._systemMessage } = opts
     let { parentMessageId } = opts
-
-    const userLabel = USER_LABEL_DEFAULT
-    const assistantLabel = ASSISTANT_LABEL_DEFAULT
 
     const maxNumTokens = this._maxModelTokens - this._maxResponseTokens
     let messages: types.openai.ChatCompletionRequestMessage[] = []
@@ -388,23 +426,15 @@ export class ChatGPTAPI {
     let numTokens = 0
 
     do {
-      const prompt = nextMessages
-        .reduce((prompt, message) => {
-          switch (message.role) {
-            case 'system':
-              return prompt.concat([`Instructions:\n${message.content}`])
-            case 'user':
-              return prompt.concat([`${userLabel}:\n${message.content}`])
-            default:
-              return prompt.concat([`${assistantLabel}:\n${message.content}`])
-          }
-        }, [] as string[])
-        .join('\n\n')
-
+      const prompt = this._formatPrompt(nextMessages)
       const nextNumTokensEstimate = await this._getTokenCount(prompt)
-      const isValidPrompt = nextNumTokensEstimate <= maxNumTokens
+
+      // In practice, it was found that the actual statistics may be within the range of 0-200 less than the official data. It may not seem very elegant, but it can make the program more secure. Otherwise, there is still a risk of exceeding the limit. We hope for a better solution or making the statistics more accurate
+      const isValidPrompt = nextNumTokensEstimate + 200 <= maxNumTokens
 
       if (prompt && !isValidPrompt) {
+        // If the limit is exceeded, it is necessary to handle the historical context, otherwise it will cause a 429 maximum context limit error
+        messages = await this._recursivePruning(messages, maxNumTokens)
         break
       }
 
