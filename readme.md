@@ -389,7 +389,7 @@ To use `ChatGPTUnofficialProxyAPI`, you'll need an OpenAI access token from the 
   - [ericlewis/openai-authenticator](https://github.com/ericlewis/openai-authenticator)
   - [michael-dm/openai-token](https://github.com/michael-dm/openai-token)
   - [allanoricil/chat-gpt-authenticator](https://github.com/AllanOricil/chat-gpt-authenticator)
-- Python libs
+- Go libs
   - [acheong08/OpenAIAuth](https://github.com/acheong08/OpenAIAuth)
 
 These libraries work with email + password accounts (e.g., they do not support accounts where you auth via Microsoft / Google).
