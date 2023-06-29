@@ -44,6 +44,8 @@ export type SendMessageOptions = {
   systemMessage?: string
   timeoutMs?: number
   onProgress?: (partialResponse: ChatMessage) => void
+  getMessageById?: GetMessageByIdFunction
+  upsertMessage?: UpsertMessageFunction
   abortSignal?: AbortSignal
   completionParams?: Partial<
     Omit<openai.CreateChatCompletionRequest, 'messages' | 'n' | 'stream'>
@@ -87,7 +89,7 @@ export class ChatGPTError extends Error {
 }
 
 /** Returns a chat message from a store by it's ID (or null if not found). */
-export type GetMessageByIdFunction = (id: string) => Promise<ChatMessage>
+export type GetMessageByIdFunction = (id: string) => Promise<ChatMessage | null>
 
 /** Upserts a chat message to a store. */
 export type UpsertMessageFunction = (message: ChatMessage) => Promise<void>
